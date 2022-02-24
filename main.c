@@ -11,8 +11,8 @@ struct sine_data
 {
     size_t table_size;
     float *table;
-    int left_phase;
-    int right_phase;
+    size_t left_phase;
+    size_t right_phase;
 };
 
 static int stream_callback(const void *input,
@@ -29,14 +29,12 @@ static int stream_callback(const void *input,
         *out++ = data->table[data->left_phase];
         *out++ = data->table[data->right_phase];
 
-        data->left_phase += 1;
-        if (data->left_phase >= data->table_size) {
-            data->left_phase = 0;
+        if (++data->left_phase >= data->table_size) {
+            data->left_phase -= data->table_size;
         }
 
-        data->right_phase += 1;
-        if (data->right_phase >= data->table_size) {
-            data->right_phase = 0;
+        if (++data->right_phase >= data->table_size) {
+            data->right_phase -= data->table_size;
         }
     }
 
@@ -55,18 +53,17 @@ int main(int argc, char **argv) {
 
     const size_t table_size = 100;
     const unsigned int seconds = 4;
-    const float volume = 0.66f;
+    const float volume = 0.8f;
 
     struct sine_data data;
     data.table_size = table_size;
+    data.left_phase = data.right_phase = 0;
     data.table = malloc(sizeof(float) * table_size);
 
     for (size_t i = 0; i < table_size; i++) {
         float val = (float) sin(((double) i / (double) table_size) * M_PI * 2.0f);
         data.table[i] = val * volume;
     }
-
-    data.left_phase = data.right_phase = 0;
 
     err = Pa_Initialize();
     if (err != paNoError) goto error;
@@ -87,8 +84,7 @@ int main(int argc, char **argv) {
             &output_params,
             SAMPLE_RATE,
             paFramesPerBufferUnspecified,
-    NULL,
-//            paClipOff,
+            paNoFlag,
             stream_callback,
             &data);
     if (err != paNoError) goto error;
@@ -108,7 +104,6 @@ int main(int argc, char **argv) {
     printf("pa closed\n");
 
     free(data.table);
-
     return err;
 
 error:
